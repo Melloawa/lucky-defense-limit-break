@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Limit Break Upgrade Chance</title>
+<meta name="description" content="How many tries each Limit Break upgrade (Lv 16–25) takes: PMF, CDF, average gold and stone cost, and a budget planner.">
+<meta property="og:title" content="Limit Break Upgrade Chance by frosty">
+<meta property="og:description" content="PMF and CDF of upgrade tries for levels 16–25, with average gold and stone costs.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#2a78d6">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232a78d6'/%3E%3Cpath d='M7 25V17M13 25V11M19 25V7M25 25V14' stroke='white' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>html{color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#f3f4f7; --surface:#ffffff; --surface-2:#eceef3;
+  --ink:#12151c; --ink-2:#474e5c; --muted:#747b89;
+  --line:#dde1e8; --grid:#e8ebf0;
+  --series:#2a78d6; --series-hi:#184f95; --series-fill:rgba(42,120,214,.12);
+  --gold:#b98200; --gem:#d0467f;
+  --focus:#2a78d6;
+  --tip-bg:#12151c; --tip-ink:#f4f6f9;
+  --display:"Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --body:"IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0f1116; --surface:#171a21; --surface-2:#20242d;
+    --ink:#f1f3f7; --ink-2:#b6bcc8; --muted:#848b98;
+    --line:#2a2f39; --grid:#232833;
+    --series:#3987e5; --series-hi:#86b6ef; --series-fill:rgba(57,135,229,.16);
+    --gold:#e0a82a; --gem:#e8729f; --focus:#86b6ef;
+    --tip-bg:#f1f3f7; --tip-ink:#12151c;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f1116; --surface:#171a21; --surface-2:#20242d;
+  --ink:#f1f3f7; --ink-2:#b6bcc8; --muted:#848b98;
+  --line:#2a2f39; --grid:#232833;
+  --series:#3987e5; --series-hi:#86b6ef; --series-fill:rgba(57,135,229,.16);
+  --gold:#e0a82a; --gem:#e8729f; --focus:#86b6ef;
+  --tip-bg:#f1f3f7; --tip-ink:#12151c;
+}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); font-family:var(--body); font-size:15px; line-height:1.5; padding-inline:16px; padding-block:28px 48px}
+.wrap{max-width:980px; margin:0 auto; display:flex; flex-direction:column; gap:22px}
+h1,h2{font-family:var(--display); text-wrap:balance; margin:0; letter-spacing:.01em}
+h1{font-size:clamp(26px,4.2vw,36px); font-weight:700; line-height:1.1}
+h2{font-size:18px; font-weight:600}
+.lede{color:var(--ink-2); margin:6px 0 0; max-width:66ch}
+.num{font-family:var(--display); font-variant-numeric:tabular-nums}
+.eyebrow{font-size:11.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); font-weight:600}
+
+/* level picker */
+.picker{display:grid; grid-template-columns:repeat(10,1fr); gap:6px}
+.picker button{font:inherit; cursor:pointer; border:1px solid var(--line); background:var(--surface); color:var(--ink);
+  border-radius:8px; padding:8px 4px 7px; display:flex; flex-direction:column; align-items:center; gap:1px; transition:background .15s,border-color .15s}
+.picker button .lv{font-family:var(--display); font-weight:600; font-size:17px; line-height:1.1}
+.picker button .rt{font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums}
+.picker button:hover{border-color:var(--series)}
+.picker button[aria-pressed="true"]{background:var(--series); border-color:var(--series); color:#fff}
+.picker button[aria-pressed="true"] .rt{color:rgba(255,255,255,.85)}
+button:focus-visible,input:focus-visible,tr:focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+
+.schedule{color:var(--ink-2); font-size:14px; margin:0}
+.schedule b{color:var(--ink); font-weight:600}
+
+/* stats */
+.stats{display:grid; grid-template-columns:repeat(6,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:10px; overflow:hidden}
+.stat{background:var(--surface); padding:12px 14px; display:flex; flex-direction:column; gap:2px; min-width:0}
+.stat .v{font-family:var(--display); font-size:26px; font-weight:600; line-height:1.15; font-variant-numeric:tabular-nums}
+.stat .s{font-size:12.5px; color:var(--muted)}
+.cost{display:flex; flex-direction:column; gap:2px; font-family:var(--display); font-weight:600; font-size:17px; font-variant-numeric:tabular-nums; line-height:1.3}
+.cost span{display:flex; align-items:center; gap:6px}
+.ico{width:14px; height:14px; flex:none}
+
+/* panels */
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px 16px 10px; display:flex; flex-direction:column; gap:4px}
+.panel header{display:flex; flex-direction:column; gap:2px}
+.panel header p{margin:0; color:var(--muted); font-size:13.5px}
+.chart{position:relative; width:100%}
+.chart svg{display:block; width:100%; overflow:visible}
+.chart text{font-family:var(--body); font-size:11.5px; fill:var(--muted); font-variant-numeric:tabular-nums}
+.chart .ref-label{fill:var(--ink-2); font-weight:600}
+.tip{position:absolute; pointer-events:none; background:var(--tip-bg); color:var(--tip-ink); border-radius:8px; padding:8px 10px;
+  font-size:12.5px; line-height:1.45; white-space:nowrap; transform:translate(-50%,-100%); box-shadow:0 4px 14px rgba(0,0,0,.18); z-index:2}
+.tip b{font-family:var(--display); font-weight:600; font-size:13.5px}
+.tip .dim{opacity:.72}
+
+/* planner */
+.planner{display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:18px; align-items:center}
+.planner label{display:flex; flex-direction:column; gap:8px; font-weight:500}
+.planner .row{display:flex; gap:10px; align-items:center}
+.planner input[type=range]{flex:1; accent-color:var(--series); min-width:0}
+.planner input[type=number]{width:84px; font:inherit; font-family:var(--display); font-size:16px; padding:5px 8px; border:1px solid var(--line); border-radius:6px; background:var(--surface-2); color:var(--ink)}
+.result{display:flex; flex-direction:column; gap:4px}
+.result .big{font-family:var(--display); font-size:34px; font-weight:700; line-height:1.05; font-variant-numeric:tabular-nums}
+.result p{margin:0; color:var(--ink-2); font-size:14px}
+.meter{height:8px; border-radius:4px; background:var(--surface-2); overflow:hidden}
+.meter i{display:block; height:100%; background:var(--series); border-radius:4px; transition:width .2s}
+
+/* table */
+.tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--surface)}
+table{border-collapse:collapse; width:100%; min-width:720px; font-size:14px}
+th,td{padding:9px 12px; text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+thead th{font-size:11.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); font-weight:600; border-bottom:1px solid var(--line)}
+tbody tr{cursor:pointer; border-bottom:1px solid var(--grid)}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr[aria-selected="true"]{background:var(--series-fill)}
+tbody td:first-child{font-family:var(--display); font-weight:600}
+.foot{color:var(--muted); font-size:13px; margin:0}
+
+@media (max-width:760px){
+  .stats{grid-template-columns:repeat(3,1fr)}
+  .planner{grid-template-columns:1fr}
+  .picker{grid-template-columns:repeat(5,1fr)}
+}
+@media (max-width:420px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .stat .v{font-size:22px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-gold" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="var(--gold)"/><circle cx="8" cy="8" r="4.2" fill="none" stroke="var(--surface)" stroke-width="1.4" opacity=".7"/></symbol>
+  <symbol id="i-gem" viewBox="0 0 16 16"><path d="M8 1 15 6.5 8 15 1 6.5Z" fill="var(--gem)"/><path d="M1 6.5h14M8 1 5.5 6.5 8 15l2.5-8.5L8 1" fill="none" stroke="var(--surface)" stroke-width=".9" opacity=".6"/></symbol>
+</svg>
+
+<div class="wrap">
+  <div>
+    <div class="eyebrow">Levels 16–25</div>
+    <h1>Limit Break Upgrade Chance <span style="font-weight:500;color:var(--muted)">by frosty</span></h1>
+  </div>
+
+  <div class="picker" id="picker" role="group" aria-label="Upgrade level"></div>
+  <p class="schedule" id="schedule"></p>
+
+  <div class="stats" id="stats"></div>
+
+  <section class="panel">
+    <header>
+      <h2 id="pmfTitle">PMF · P(X = k)</h2>
+      <p>Chance the upgrade lands on exactly that try. Hover a bar for details.</p>
+    </header>
+    <div class="chart" id="pmf"></div>
+  </section>
+
+  <section class="panel">
+    <header>
+      <h2 id="cdfTitle">CDF · P(X ≤ k)</h2>
+      <p>Cumulative odds. Dashed lines mark the try where 50%, 90% and 99% of players are done. Click to plan that many tries.</p>
+    </header>
+    <div class="chart" id="cdf"></div>
+  </section>
+
+  <section class="panel" style="padding-bottom:16px">
+    <header><h2>Plan your budget</h2></header>
+    <div class="planner">
+      <label for="triesRange">Tries you can afford
+        <div class="row">
+          <input type="range" id="triesRange" min="1" value="1">
+          <input type="number" id="triesNum" min="1" value="1" aria-label="Number of tries">
+        </div>
+      </label>
+      <div class="result" aria-live="polite">
+        <div class="big" id="planPct">–</div>
+        <div class="meter"><i id="planBar"></i></div>
+        <p id="planText"></p>
+      </div>
+    </div>
+  </section>
+
+  <div>
+    <h2 style="margin-bottom:10px">All levels</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Level</th><th>Base</th><th>Avg tries</th><th>50% by</th><th>90% by</th><th>99% by</th><th>Guaranteed</th><th>Avg gold</th><th>Avg stones</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const RAW=[[16,70,20000,30],[17,50,22000,32],[18,30,24000,34],[19,20,26000,36],[20,12,28000,38],[21,8,32000,40],[22,6,36000,42],[23,4,40000,44],[24,2,50000,47],[25,1,60000,50]];
+function build([lv,b,gold,gem]){
+  const pmf=[],rate=[],cdf=[]; let fail=1,c=0,E=0;
+  const guar=Math.ceil(1000/b)-9;               // first try where the rate reaches 100%
+  for(let k=1;k<=guar;k++){
+    const p=Math.min(1,b*(9+k)/1000);           // base*(1+0.1(k-1)), in integer math
+    const s=fail*p; pmf.push(s); rate.push(p); c+=s; cdf.push(c); E+=k*s; fail*=1-p;
+  }
+  const q=t=>cdf.findIndex(v=>v>=t-1e-12)+1;
+  return {lv,b,gold,gem,pmf,rate,cdf,E,guar,p50:q(.5),p90:q(.9),p99:q(.99),shown:Math.min(guar,Math.max(q(.999),3))};
+}
+const LV=RAW.map(build);
+let cur=LV[0];
+
+const $=s=>document.querySelector(s);
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+const pct=v=>{ if(v>=1-1e-12) return '100%'; if(v>0&&v<0.0005) return '<0.1%'; if(v>0.9995) return '>99.9%'; return (v*100).toFixed(1)+'%'; };
+const rateStr=p=>(Math.round(p*1000)/10).toString()+'%';
+const icon=(id)=>`<svg class="ico" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+const NS='http://www.w3.org/2000/svg';
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+function niceStep(raw){const p=Math.pow(10,Math.floor(Math.log10(raw)));const f=raw/p;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*p;}
+function xStep(N,iw){const want=Math.max(3,Math.floor(iw/56));for(const s of [1,2,5,10,20,25,50,100]) if(N/s<=want) return s;return 200;}
+
+/* ---------- picker + table ---------- */
+const picker=$('#picker');
+LV.forEach((d,i)=>{
+  const b=document.createElement('button');
+  b.type='button'; b.id='lv'+d.lv;
+  b.innerHTML=`<span class="lv">${d.lv}</span><span class="rt">${d.b}%</span>`;
+  b.setAttribute('aria-label',`Level ${d.lv}, base ${d.b}%`);
+  b.onclick=()=>select(i);
+  picker.appendChild(b);
+});
+const tbody=$('#tbody');
+LV.forEach((d,i)=>{
+  const tr=document.createElement('tr'); tr.tabIndex=0;
+  tr.innerHTML=`<td>Lv ${d.lv}</td><td>${d.b}%</td><td>${d.E.toFixed(2)}</td><td>${d.p50}</td><td>${d.p90}</td><td>${d.p99}</td><td>${d.guar}</td><td>${fmt(d.E*d.gold)}</td><td>${(d.E*d.gem).toFixed(1)}</td>`;
+  tr.onclick=()=>select(i);
+  tr.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(i);}};
+  tbody.appendChild(tr);
+});
+
+function select(i,keepTries){
+  cur=LV[i];
+  picker.querySelectorAll('button').forEach((b,j)=>b.setAttribute('aria-pressed',j===i));
+  tbody.querySelectorAll('tr').forEach((r,j)=>r.setAttribute('aria-selected',j===i));
+  const d=cur;
+  const first=d.rate.slice(0,Math.min(5,d.guar)).map(rateStr);
+  $('#schedule').innerHTML=`<b>Lv ${d.lv} per-try chance:</b> ${first.join(' → ')}${d.guar>5?' → …':''} → <b>100% on try ${d.guar}</b>`;
+  $('#pmfTitle').textContent=`PMF · P(X = k) at Lv ${d.lv}`; $('#cdfTitle').textContent=`CDF · P(X ≤ k) at Lv ${d.lv}`;
+  $('#stats').innerHTML=`
+    <div class="stat"><span class="eyebrow">Avg tries</span><span class="v">${d.E.toFixed(2)}</span><span class="s">expected value</span></div>
+    <div class="stat"><span class="eyebrow">50% done by</span><span class="v">try ${d.p50}</span><span class="s">${pct(d.cdf[d.p50-1])} succeed by then</span></div>
+    <div class="stat"><span class="eyebrow">90% done by</span><span class="v">try ${d.p90}</span><span class="s">${pct(d.cdf[d.p90-1])} succeed by then</span></div>
+    <div class="stat"><span class="eyebrow">99% done by</span><span class="v">try ${d.p99}</span><span class="s">${pct(d.cdf[d.p99-1])} succeed by then</span></div>
+    <div class="stat"><span class="eyebrow">Guaranteed</span><span class="v">try ${d.guar}</span><span class="s">rate hits 100%</span></div>
+    <div class="stat"><span class="eyebrow">Avg cost</span><div class="cost"><span>${icon('gold')}${fmt(d.E*d.gold)}</span><span>${icon('gem')}${(d.E*d.gem).toFixed(1)}</span></div></div>`;
+  const r=$('#triesRange'), n=$('#triesNum');
+  r.max=d.shown; n.max=d.guar;
+  if(!keepTries) setTries(d.p90);
+  draw();
+}
+
+/* ---------- planner ---------- */
+function setTries(k){
+  const d=cur; k=Math.max(1,Math.min(d.guar,Math.round(k)||1));
+  $('#triesRange').value=Math.min(k,d.shown); $('#triesNum').value=k;
+  const p=d.cdf[k-1];
+  $('#planPct').textContent=pct(p);
+  $('#planBar').style.width=(p*100)+'%';
+  $('#planText').innerHTML=`chance to reach Lv ${d.lv+1} within <b>${k}</b> ${k===1?'try':'tries'}. Using all ${k} costs ${icon('gold')} <b>${fmt(k*d.gold)}</b> gold and ${icon('gem')} <b>${fmt(k*d.gem)}</b> stones. You stop early if it lands, so the average spend is lower.`;
+}
+$('#triesRange').addEventListener('input',e=>setTries(+e.target.value));
+$('#triesNum').addEventListener('input',e=>{ if(e.target.value!=='') setTries(+e.target.value); });
+
+/* ---------- charts ---------- */
+function frame(box){
+  const W=box.clientWidth, H=W<520?230:270;
+  const m={l:W<520?40:48,r:14,t:24,b:36};
+  return {W,H,m,iw:W-m.l-m.r,ih:H-m.t-m.b};
+}
+function xAxis(svg,f,N,band){
+  const {m,ih,iw}=f, s=xStep(N,iw);
+  el('line',{x1:m.l,x2:m.l+iw,y1:m.t+ih+.5,y2:m.t+ih+.5,stroke:'var(--line)'},svg);
+  for(let k=1;k<=N;k++){
+    if(!(k===1||k%s===0)) continue;
+    if(k===1&&s>1&&s*band<28) continue;
+    const t=el('text',{x:m.l+(k-.5)*band,y:m.t+ih+17,'text-anchor':'middle'},svg); t.textContent=k;
+  }
+  const lab=el('text',{x:m.l+iw,y:m.t+ih+32,'text-anchor':'end'},svg); lab.textContent='try number';
+}
+function tipAt(box,x,y,html){
+  let t=box.querySelector('.tip'); if(!t){t=document.createElement('div');t.className='tip';box.appendChild(t);}
+  t.innerHTML=html; t.hidden=false;
+  const w=t.offsetWidth, W=box.clientWidth;
+  const cx=Math.max(w/2+2,Math.min(W-w/2-2,x));
+  t.style.left=cx+'px'; t.style.top=Math.max(t.offsetHeight+4,y-10)+'px';
+}
+function hideTip(box){const t=box.querySelector('.tip'); if(t) t.hidden=true;}
+
+function drawPMF(){
+  const box=$('#pmf'), d=cur, N=d.shown, f=frame(box), {W,H,m,iw,ih}=f;
+  box.querySelectorAll('svg').forEach(s=>s.remove());
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,height:H,role:'img','aria-label':`Probability of succeeding on each try at level ${d.lv}`});
+  box.prepend(svg);
+  const vals=d.pmf.slice(0,N), maxV=Math.max(...vals);
+  const step=niceStep(maxV/4), yMax=Math.ceil(maxV/step-1e-9)*step;
+  const y=v=>m.t+ih-(v/yMax)*ih;
+  for(let v=0;v<=yMax+1e-9;v+=step){
+    el('line',{x1:m.l,x2:m.l+iw,y1:y(v)+.5,y2:y(v)+.5,stroke:'var(--grid)'},svg);
+    const t=el('text',{x:m.l-8,y:y(v)+4,'text-anchor':'end'},svg); t.textContent=(v*100).toFixed(step*100<1?1:0)+'%';
+  }
+  const band=iw/N, gap=band>8?2:band>3?1:0, bw=band-gap, r=Math.min(4,bw/2);
+  const bars=[];
+  vals.forEach((v,i)=>{
+    const x=m.l+i*band+gap/2, top=y(v), base=m.t+ih, h=base-top;
+    const rr=Math.min(r,h);
+    const p=el('path',{d:`M${x},${base}V${top+rr}Q${x},${top} ${x+rr},${top}H${x+bw-rr}Q${x+bw},${top} ${x+bw},${top+rr}V${base}Z`,fill:'var(--series)'},svg);
+    bars.push(p);
+  });
+  // mean marker
+  const mx=m.l+(d.E-.5)*band;
+  el('line',{x1:mx,x2:mx,y1:m.t-6,y2:m.t+ih,stroke:'var(--ink-2)','stroke-dasharray':'3 3','stroke-width':1},svg);
+  const ml=el('text',{x:mx+(mx>m.l+iw*.8?-5:5),y:m.t-8,'text-anchor':mx>m.l+iw*.8?'end':'start',class:'ref-label'},svg); ml.textContent=`avg ${d.E.toFixed(1)} tries`;
+  // label the tallest bar
+  const top=vals.indexOf(maxV);
+  if(bw>=14){const t=el('text',{x:m.l+(top+.5)*band,y:y(maxV)-6,'text-anchor':'middle',class:'ref-label'},svg);t.textContent=pct(maxV);
+    if(Math.abs((top+.5)*band-(d.E-.5)*band)<40) t.setAttribute('y',y(maxV)+14), t.setAttribute('fill','#fff');}
+  xAxis(svg,f,N,band);
+  const hit=el('rect',{x:m.l,y:m.t,width:iw,height:ih,fill:'transparent'},svg);
+  let last=-1;
+  const move=e=>{
+    const rect=svg.getBoundingClientRect(), px=e.clientX-rect.left;
+    const i=Math.max(0,Math.min(N-1,Math.floor((px-m.l)/band)));
+    if(last>=0) bars[last].setAttribute('fill','var(--series)');
+    bars[i].setAttribute('fill','var(--series-hi)'); last=i;
+    const k=i+1;
+    tipAt(box,m.l+(i+.5)*band,y(vals[i]),
+      `<b>Try ${k}</b> · lands here: <b>${pct(vals[i])}</b><br><span class="dim">Chance on this try if you get here: ${rateStr(d.rate[i])}<br>Reach this try at all: ${pct(i?1-d.cdf[i-1]:1)}<br>Spent by then: ${fmt(k*d.gold)} gold · ${k*d.gem} stones</span>`);
+  };
+  hit.addEventListener('pointermove',move); hit.addEventListener('pointerdown',move);
+  hit.addEventListener('pointerleave',()=>{hideTip(box); if(last>=0) bars[last].setAttribute('fill','var(--series)'); last=-1;});
+}
+
+function drawCDF(){
+  const box=$('#cdf'), d=cur, N=d.shown, f=frame(box), {W,H,m,iw,ih}=f;
+  box.querySelectorAll('svg').forEach(s=>s.remove());
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,height:H,role:'img','aria-label':`Cumulative chance of success by try at level ${d.lv}`});
+  box.prepend(svg);
+  const y=v=>m.t+ih-v*ih, band=iw/N, x=k=>m.l+(k-.5)*band;
+  [0,.25,.5,.75,1].forEach(v=>{
+    el('line',{x1:m.l,x2:m.l+iw,y1:y(v)+.5,y2:y(v)+.5,stroke:'var(--grid)'},svg);
+    const t=el('text',{x:m.l-8,y:y(v)+4,'text-anchor':'end'},svg); t.textContent=(v*100)+'%';
+  });
+  [[d.p50,'50%'],[d.p90,'90%'],[d.p99,'99%']].forEach(([k,l])=>{
+    if(k>N) return;
+    el('line',{x1:x(k),x2:x(k),y1:m.t-4,y2:m.t+ih,stroke:'var(--ink-2)','stroke-dasharray':'3 3'},svg);
+    const t=el('text',{x:x(k),y:m.t-8,'text-anchor':'middle',class:'ref-label'},svg); t.textContent=`${l} · try ${k}`;
+  });
+  // step-free polyline from (0.5 band, 0) through each try
+  const pts=[[m.l,y(0)]].concat(d.cdf.slice(0,N).map((v,i)=>[x(i+1),y(v)]));
+  const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join('');
+  el('path',{d:line+`L${pts[pts.length-1][0]},${y(0)}Z`,fill:'var(--series-fill)'},svg);
+  el('path',{d:line,fill:'none',stroke:'var(--series)','stroke-width':2,'stroke-linejoin':'round'},svg);
+  if(N<=30) d.cdf.slice(0,N).forEach((v,i)=>el('circle',{cx:x(i+1),cy:y(v),r:3.5,fill:'var(--series)',stroke:'var(--surface)','stroke-width':2},svg));
+  xAxis(svg,f,N,band);
+  const cross=el('line',{y1:m.t,y2:m.t+ih,stroke:'var(--ink)','stroke-width':1,opacity:0},svg);
+  const dot=el('circle',{r:5,fill:'var(--series)',stroke:'var(--surface)','stroke-width':2,opacity:0},svg);
+  const hit=el('rect',{x:m.l,y:m.t,width:iw,height:ih,fill:'transparent',style:'cursor:pointer'},svg);
+  const idx=e=>{const rect=svg.getBoundingClientRect();return Math.max(0,Math.min(N-1,Math.floor((e.clientX-rect.left-m.l)/band)));};
+  const move=e=>{
+    const i=idx(e), k=i+1, v=d.cdf[i];
+    cross.setAttribute('x1',x(k)); cross.setAttribute('x2',x(k)); cross.setAttribute('opacity',.35);
+    dot.setAttribute('cx',x(k)); dot.setAttribute('cy',y(v)); dot.setAttribute('opacity',1);
+    tipAt(box,x(k),y(v),`<b>Within ${k} ${k===1?'try':'tries'}: ${pct(v)}</b><br><span class="dim">Still failing after ${k}: ${pct(1-v)}<br>Max spend: ${fmt(k*d.gold)} gold · ${k*d.gem} stones</span>`);
+  };
+  hit.addEventListener('pointermove',move);
+  hit.addEventListener('pointerdown',e=>{move(e); setTries(idx(e)+1);});
+  hit.addEventListener('pointerleave',()=>{hideTip(box);cross.setAttribute('opacity',0);dot.setAttribute('opacity',0);});
+}
+
+function draw(){drawPMF();drawCDF();}
+let rz; window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(draw,120);});
+
+const h=(location.hash||'').replace('#','');
+const start=Math.max(0,LV.findIndex(d=>'lv'+d.lv===h));
+select(start);
+</script>
+
+</body>
+</html>
