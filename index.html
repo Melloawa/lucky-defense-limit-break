@@ -84,8 +84,9 @@ button:focus-visible,input:focus-visible,tr:focus-visible{outline:2px solid var(
 .panel{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px 16px 10px; display:flex; flex-direction:column; gap:4px}
 .panel header{display:flex; flex-direction:column; gap:2px}
 .panel header p{margin:0; color:var(--muted); font-size:13.5px}
-.chart{position:relative; width:100%}
-.chart svg{display:block; width:100%; overflow:visible}
+.chart{position:relative; width:100%; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent}
+.picker,.stats{-webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent}
+.chart svg{display:block; width:100%; overflow:visible; touch-action:pan-y}
 .chart text{font-family:var(--body); font-size:11.5px; fill:var(--muted); font-variant-numeric:tabular-nums}
 .chart .ref-label{fill:var(--ink-2); font-weight:600}
 .tip{position:absolute; pointer-events:none; background:var(--tip-bg); color:var(--tip-ink); border-radius:8px; padding:8px 10px;
@@ -150,7 +151,7 @@ tbody td:first-child{font-family:var(--display); font-weight:600}
   <section class="panel">
     <header>
       <h2 id="pmfTitle">PMF · P(X = k)</h2>
-      <p>Chance the upgrade lands on exactly that try. Hover a bar for details.</p>
+      <p>Chance the upgrade lands on exactly that try. Tap or hover a bar for details; drag sideways to scrub.</p>
     </header>
     <div class="chart" id="pmf"></div>
   </section>
@@ -158,7 +159,7 @@ tbody td:first-child{font-family:var(--display); font-weight:600}
   <section class="panel">
     <header>
       <h2 id="cdfTitle">CDF · P(X ≤ k)</h2>
-      <p>Cumulative odds. Dashed lines mark the try where 50%, 90% and 99% of players are done. Click to plan that many tries.</p>
+      <p>Cumulative odds. Dashed lines mark the try where 50%, 90% and 99% of players are done. Tap to plan that many tries.</p>
     </header>
     <div class="chart" id="cdf"></div>
   </section>
@@ -334,7 +335,8 @@ function drawPMF(){
       `<b>Try ${k}</b> · lands here: <b>${pct(vals[i])}</b><br><span class="dim">Chance on this try if you get here: ${rateStr(d.rate[i])}<br>Reach this try at all: ${pct(i?1-d.cdf[i-1]:1)}<br>Spent by then: ${fmt(k*d.gold)} gold · ${k*d.gem} stones</span>`);
   };
   hit.addEventListener('pointermove',move); hit.addEventListener('pointerdown',move);
-  hit.addEventListener('pointerleave',()=>{hideTip(box); if(last>=0) bars[last].setAttribute('fill','var(--series)'); last=-1;});
+  box._clear=()=>{hideTip(box); if(last>=0) bars[last].setAttribute('fill','var(--series)'); last=-1;};
+  hit.addEventListener('pointerleave',e=>{ if(e.pointerType!=='touch') box._clear(); });
 }
 
 function drawCDF(){
@@ -370,8 +372,10 @@ function drawCDF(){
     tipAt(box,x(k),y(v),`<b>Within ${k} ${k===1?'try':'tries'}: ${pct(v)}</b><br><span class="dim">Still failing after ${k}: ${pct(1-v)}<br>Max spend: ${fmt(k*d.gold)} gold · ${k*d.gem} stones</span>`);
   };
   hit.addEventListener('pointermove',move);
-  hit.addEventListener('pointerdown',e=>{move(e); setTries(idx(e)+1);});
-  hit.addEventListener('pointerleave',()=>{hideTip(box);cross.setAttribute('opacity',0);dot.setAttribute('opacity',0);});
+  hit.addEventListener('pointerdown',move);
+  hit.addEventListener('click',e=>setTries(idx(e)+1));
+  box._clear=()=>{hideTip(box);cross.setAttribute('opacity',0);dot.setAttribute('opacity',0);};
+  hit.addEventListener('pointerleave',e=>{ if(e.pointerType!=='touch') box._clear(); });
 }
 
 function draw(){drawPMF();drawCDF();}
@@ -380,6 +384,9 @@ let rz; window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(dra
 const h=(location.hash||'').replace('#','');
 const start=Math.max(0,LV.findIndex(d=>'lv'+d.lv===h));
 select(start);
+// phones: no long-press menu on charts; tap outside a chart to dismiss its tooltip
+document.querySelectorAll('.chart').forEach(b=>b.addEventListener('contextmenu',e=>e.preventDefault()));
+document.addEventListener('pointerdown',e=>{document.querySelectorAll('.chart').forEach(b=>{ if(!b.contains(e.target) && b._clear) b._clear(); });});
 </script>
 
 </body>
