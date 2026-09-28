@@ -70,6 +70,8 @@ button:focus-visible,input:focus-visible,tr:focus-visible{outline:2px solid var(
 
 .schedule{color:var(--ink-2); font-size:14px; margin:0}
 .schedule b{color:var(--ink); font-weight:600}
+.note{margin:-10px 0 0; color:var(--ink-2); font-size:13.5px; max-width:72ch}
+.note b{color:var(--ink); font-weight:600}
 
 /* stats */
 .stats{display:grid; grid-template-columns:repeat(6,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:10px; overflow:hidden}
@@ -151,6 +153,7 @@ tbody td:first-child{font-family:var(--display); font-weight:600}
   <p class="schedule" id="schedule"></p>
 
   <div class="stats" id="stats"></div>
+  <p class="note" id="meanNote"></p>
 
   <section class="panel">
     <header>
@@ -191,7 +194,7 @@ tbody td:first-child{font-family:var(--display); font-weight:600}
     <h2 style="margin-bottom:10px">All levels</h2>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Level</th><th>Base</th><th>Avg tries</th><th>50% by</th><th>90% by</th><th>99% by</th><th>Guaranteed</th><th>Avg gold</th><th>Avg stones</th></tr></thead>
+        <thead><tr><th>Level</th><th>Base</th><th>Avg tries (mean)</th><th>50% by (median)</th><th>90% by</th><th>99% by</th><th>Guaranteed</th><th>Avg gold</th><th>Avg stones</th></tr></thead>
         <tbody id="tbody"></tbody>
       </table>
     </div>
@@ -251,12 +254,13 @@ function select(i,keepTries){
   $('#schedule').innerHTML=`<b>Lv ${d.lv} per-try chance:</b> ${first.join(' → ')}${d.guar>5?' → …':''} → <b>100% on try ${d.guar}</b>`;
   $('#pmfTitle').textContent=`PMF · P(X = k) at Lv ${d.lv}`; $('#cdfTitle').textContent=`CDF · P(X ≤ k) at Lv ${d.lv}`;
   $('#stats').innerHTML=`
-    <div class="stat"><span class="eyebrow">Avg tries</span><span class="v">${d.E.toFixed(2)}</span><span class="s">expected value</span></div>
-    <div class="stat"><span class="eyebrow">50% done by</span><span class="v">try ${d.p50}</span><span class="s">${pct(d.cdf[d.p50-1])} succeed by then</span></div>
+    <div class="stat"><span class="eyebrow">Avg (mean)</span><span class="v">${d.E.toFixed(2)}</span><span class="s">expected value</span></div>
+    <div class="stat"><span class="eyebrow">50% by (median)</span><span class="v">try ${d.p50}</span><span class="s">${pct(d.cdf[d.p50-1])} succeed by then</span></div>
     <div class="stat"><span class="eyebrow">90% done by</span><span class="v">try ${d.p90}</span><span class="s">${pct(d.cdf[d.p90-1])} succeed by then</span></div>
     <div class="stat"><span class="eyebrow">99% done by</span><span class="v">try ${d.p99}</span><span class="s">${pct(d.cdf[d.p99-1])} succeed by then</span></div>
     <div class="stat"><span class="eyebrow">Guaranteed</span><span class="v">try ${d.guar}</span><span class="s">rate hits 100%</span></div>
     <div class="stat"><span class="eyebrow">Avg cost</span><div class="cost"><span>${icon('gold')}${fmt(d.E*d.gold)}</span><span>${icon('gem')}${(d.E*d.gem).toFixed(1)}</span></div></div>`;
+  $('#meanNote').innerHTML=`<b>Why mean ≠ median:</b> The distribution has a long tail on the right. Most players succeed early, but a few unlucky ones take much longer. Those pull the mean to ${d.E.toFixed(2)}, while half of players are done by try ${d.p50}.`;
   const r=$('#triesRange'), n=$('#triesNum');
   r.max=d.shown; n.max=d.guar;
   if(!keepTries) setTries(d.p90);
@@ -270,7 +274,7 @@ function setTries(k){
   const p=d.cdf[k-1];
   $('#planPct').textContent=pct(p);
   $('#planBar').style.width=(p*100)+'%';
-  $('#planText').innerHTML=`chance to reach Lv ${d.lv+1} within <b>${k}</b> ${k===1?'try':'tries'}. Using all ${k} costs ${icon('gold')} <b>${fmt(k*d.gold)}</b> gold and ${icon('gem')} <b>${fmt(k*d.gem)}</b> stones. You stop early if it lands, so the average spend is lower.`;
+  $('#planText').innerHTML=`chance to reach Lv ${d.lv+1} within <b>${k}</b> ${k===1?'try':'tries'}. Using all ${k} costs ${icon('gold')} <b>${fmt(k*d.gold)}</b> gold and ${icon('gem')} <b>${fmt(k*d.gem)}</b> stones.`;
 }
 $('#triesRange').addEventListener('input',e=>setTries(+e.target.value));
 $('#triesNum').addEventListener('input',e=>{ if(e.target.value!=='') setTries(+e.target.value); });
