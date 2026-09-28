@@ -93,6 +93,10 @@ button:focus-visible,input:focus-visible,tr:focus-visible{outline:2px solid var(
   font-size:12.5px; line-height:1.45; white-space:nowrap; transform:translate(-50%,-100%); box-shadow:0 4px 14px rgba(0,0,0,.18); z-index:2}
 .tip b{font-family:var(--display); font-weight:600; font-size:13.5px}
 .tip .dim{opacity:.72}
+.chart .halo{paint-order:stroke; stroke:var(--surface); stroke-width:4px; stroke-linejoin:round}
+.readout{display:none; font-size:13px; line-height:1.5; color:var(--ink-2); background:var(--surface-2); border-radius:8px; padding:8px 10px; min-height:5.4em; margin-block:6px 4px}
+.readout b{font-family:var(--display); font-weight:600; color:var(--ink)}
+@media (hover:none){.readout{display:block}}
 
 /* planner */
 .planner{display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:18px; align-items:center}
@@ -154,6 +158,7 @@ tbody td:first-child{font-family:var(--display); font-weight:600}
       <p>Chance the upgrade lands on exactly that try. Tap or hover a bar for details; drag sideways to scrub.</p>
     </header>
     <div class="chart" id="pmf"></div>
+    <div class="readout" id="pmfRead" aria-live="polite" data-default="Tap a bar to see its odds and cost.">Tap a bar to see its odds and cost.</div>
   </section>
 
   <section class="panel">
@@ -162,6 +167,7 @@ tbody td:first-child{font-family:var(--display); font-weight:600}
       <p>Cumulative odds. Dashed lines mark the try where 50%, 90% and 99% of players are done. Tap to plan that many tries.</p>
     </header>
     <div class="chart" id="cdf"></div>
+    <div class="readout" id="cdfRead" aria-live="polite" data-default="Tap the chart to see your odds within that many tries.">Tap the chart to see your odds within that many tries.</div>
   </section>
 
   <section class="panel" style="padding-bottom:16px">
@@ -209,7 +215,7 @@ let cur=LV[0];
 
 const $=s=>document.querySelector(s);
 const fmt=n=>Math.round(n).toLocaleString('en-US');
-const pct=v=>{ if(v>=1-1e-12) return '100%'; if(v>0&&v<0.0005) return '<0.1%'; if(v>0.9995) return '>99.9%'; return (v*100).toFixed(1)+'%'; };
+const pct=v=>{ if(v>=1-1e-12) return '100%'; if(v<=0) return '0%'; if(v<0.00005) return '<0.01%'; if(v>0.99995) return '>99.99%'; return (v*100).toFixed(v<0.01||v>0.99?2:1)+'%'; };
 const rateStr=p=>(Math.round(p*1000)/10).toString()+'%';
 const icon=(id)=>`<svg class="ico" aria-hidden="true"><use href="#i-${id}"/></svg>`;
 const NS='http://www.w3.org/2000/svg';
@@ -270,9 +276,9 @@ $('#triesRange').addEventListener('input',e=>setTries(+e.target.value));
 $('#triesNum').addEventListener('input',e=>{ if(e.target.value!=='') setTries(+e.target.value); });
 
 /* ---------- charts ---------- */
-function frame(box){
-  const W=box.clientWidth, H=W<520?230:270;
-  const m={l:W<520?40:48,r:14,t:24,b:36};
+function frame(box,extra=0){
+  const W=box.clientWidth, H=(W<520?230:270)+extra;
+  const m={l:W<520?40:48,r:14,t:24+extra,b:36};
   return {W,H,m,iw:W-m.l-m.r,ih:H-m.t-m.b};
 }
 function xAxis(svg,f,N,band){
@@ -285,14 +291,16 @@ function xAxis(svg,f,N,band){
   }
   const lab=el('text',{x:m.l+iw,y:m.t+ih+32,'text-anchor':'end'},svg); lab.textContent='try number';
 }
-function tipAt(box,x,y,html){
+function tipAt(box,x,y,html,e){
+  const rd=document.getElementById(box.id+'Read'); if(rd) rd.innerHTML=html;
+  if(e&&e.pointerType==='touch'){ const f=box.querySelector('.tip'); if(f) f.hidden=true; return; }
   let t=box.querySelector('.tip'); if(!t){t=document.createElement('div');t.className='tip';box.appendChild(t);}
   t.innerHTML=html; t.hidden=false;
   const w=t.offsetWidth, W=box.clientWidth;
   const cx=Math.max(w/2+2,Math.min(W-w/2-2,x));
   t.style.left=cx+'px'; t.style.top=Math.max(t.offsetHeight+4,y-10)+'px';
 }
-function hideTip(box){const t=box.querySelector('.tip'); if(t) t.hidden=true;}
+function hideTip(box){const t=box.querySelector('.tip'); if(t) t.hidden=true; const rd=document.getElementById(box.id+'Read'); if(rd) rd.textContent=rd.dataset.default;}
 
 function drawPMF(){
   const box=$('#pmf'), d=cur, N=d.shown, f=frame(box), {W,H,m,iw,ih}=f;
@@ -317,11 +325,13 @@ function drawPMF(){
   // mean marker
   const mx=m.l+(d.E-.5)*band;
   el('line',{x1:mx,x2:mx,y1:m.t-6,y2:m.t+ih,stroke:'var(--ink-2)','stroke-dasharray':'3 3','stroke-width':1},svg);
-  const ml=el('text',{x:mx+(mx>m.l+iw*.8?-5:5),y:m.t-8,'text-anchor':mx>m.l+iw*.8?'end':'start',class:'ref-label'},svg); ml.textContent=`avg ${d.E.toFixed(1)} tries`;
+  const ml=el('text',{x:mx+(mx>m.l+iw*.8?-5:5),y:m.t-8,'text-anchor':mx>m.l+iw*.8?'end':'start',class:'ref-label halo'},svg); ml.textContent=`avg ${d.E.toFixed(1)} tries`;
   // label the tallest bar
   const top=vals.indexOf(maxV);
-  if(bw>=14){const t=el('text',{x:m.l+(top+.5)*band,y:y(maxV)-6,'text-anchor':'middle',class:'ref-label'},svg);t.textContent=pct(maxV);
-    if(Math.abs((top+.5)*band-(d.E-.5)*band)<40) t.setAttribute('y',y(maxV)+14), t.setAttribute('fill','#fff');}
+  if(bw>=14){const cx=m.l+(top+.5)*band; const t=el('text',{x:cx,y:y(maxV)-6,'text-anchor':'middle',class:'ref-label halo'},svg);t.textContent=pct(maxV);
+    const bb=t.getBBox(); if(bb.x<m.l) t.setAttribute('x',cx+(m.l-bb.x));
+    const a=t.getBBox(), c=ml.getBBox();
+    if(a.x<c.x+c.width+4 && c.x<a.x+a.width+4 && a.y<c.y+c.height && c.y<a.y+a.height) t.remove();}
   xAxis(svg,f,N,band);
   const hit=el('rect',{x:m.l,y:m.t,width:iw,height:ih,fill:'transparent'},svg);
   let last=-1;
@@ -332,7 +342,7 @@ function drawPMF(){
     bars[i].setAttribute('fill','var(--series-hi)'); last=i;
     const k=i+1;
     tipAt(box,m.l+(i+.5)*band,y(vals[i]),
-      `<b>Try ${k}</b> · lands here: <b>${pct(vals[i])}</b><br><span class="dim">Chance on this try if you get here: ${rateStr(d.rate[i])}<br>Reach this try at all: ${pct(i?1-d.cdf[i-1]:1)}<br>Spent by then: ${fmt(k*d.gold)} gold · ${k*d.gem} stones</span>`);
+      `<b>Try ${k}</b> · lands here: <b>${pct(vals[i])}</b><br><span class="dim">Chance on this try if you get here: ${rateStr(d.rate[i])}<br>Reach this try at all: ${pct(i?1-d.cdf[i-1]:1)}<br>Spent by then: ${fmt(k*d.gold)} gold · ${k*d.gem} stones</span>`,e);
   };
   hit.addEventListener('pointermove',move); hit.addEventListener('pointerdown',move);
   box._clear=()=>{hideTip(box); if(last>=0) bars[last].setAttribute('fill','var(--series)'); last=-1;};
@@ -340,7 +350,7 @@ function drawPMF(){
 }
 
 function drawCDF(){
-  const box=$('#cdf'), d=cur, N=d.shown, f=frame(box), {W,H,m,iw,ih}=f;
+  const box=$('#cdf'), d=cur, N=d.shown, f=frame(box,12), {W,H,m,iw,ih}=f;
   box.querySelectorAll('svg').forEach(s=>s.remove());
   const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,height:H,role:'img','aria-label':`Cumulative chance of success by try at level ${d.lv}`});
   box.prepend(svg);
@@ -349,11 +359,18 @@ function drawCDF(){
     el('line',{x1:m.l,x2:m.l+iw,y1:y(v)+.5,y2:y(v)+.5,stroke:'var(--grid)'},svg);
     const t=el('text',{x:m.l-8,y:y(v)+4,'text-anchor':'end'},svg); t.textContent=(v*100)+'%';
   });
-  [[d.p50,'50%'],[d.p90,'90%'],[d.p99,'99%']].forEach(([k,l])=>{
-    if(k>N) return;
+  const labs=[[d.p50,'50%'],[d.p90,'90%'],[d.p99,'99%']].filter(([k])=>k<=N).map(([k,l])=>{
     el('line',{x1:x(k),x2:x(k),y1:m.t-4,y2:m.t+ih,stroke:'var(--ink-2)','stroke-dasharray':'3 3'},svg);
-    const t=el('text',{x:x(k),y:m.t-8,'text-anchor':'middle',class:'ref-label'},svg); t.textContent=`${l} · try ${k}`;
+    const t=el('text',{x:x(k),y:m.t-8,'text-anchor':'middle',class:'ref-label halo'},svg); t.textContent=`${l} · try ${k}`;
+    t._x=x(k); t._short=`${l} · ${k}`; return t;
   });
+  // keep quantile labels readable: full text if it fits, else short text, else two rows
+  const fit=()=>labs.forEach(t=>{ t.setAttribute('x',t._x); const bb=t.getBBox();
+    if(bb.x<m.l) t.setAttribute('x',t._x+(m.l-bb.x)); else if(bb.x+bb.width>W-2) t.setAttribute('x',t._x-(bb.x+bb.width-W+2)); });
+  const clash=(i)=>{ if(!i) return false; const p=labs[i-1].getBBox(), q=labs[i].getBBox(); return p.x+p.width+6>q.x && Math.abs(p.y-q.y)<4; };
+  fit();
+  if(labs.some((_,i)=>clash(i))){ labs.forEach(t=>t.textContent=t._short); fit(); }
+  labs.forEach((t,i)=>{ if(clash(i)) t.setAttribute('y',m.t-21); });
   // step-free polyline from (0.5 band, 0) through each try
   const pts=[[m.l,y(0)]].concat(d.cdf.slice(0,N).map((v,i)=>[x(i+1),y(v)]));
   const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join('');
@@ -369,7 +386,7 @@ function drawCDF(){
     const i=idx(e), k=i+1, v=d.cdf[i];
     cross.setAttribute('x1',x(k)); cross.setAttribute('x2',x(k)); cross.setAttribute('opacity',.35);
     dot.setAttribute('cx',x(k)); dot.setAttribute('cy',y(v)); dot.setAttribute('opacity',1);
-    tipAt(box,x(k),y(v),`<b>Within ${k} ${k===1?'try':'tries'}: ${pct(v)}</b><br><span class="dim">Still failing after ${k}: ${pct(1-v)}<br>Max spend: ${fmt(k*d.gold)} gold · ${k*d.gem} stones</span>`);
+    tipAt(box,x(k),y(v),`<b>Within ${k} ${k===1?'try':'tries'}: ${pct(v)}</b><br><span class="dim">Still failing after ${k}: ${pct(1-v)}<br>Max spend: ${fmt(k*d.gold)} gold · ${k*d.gem} stones</span>`,e);
   };
   hit.addEventListener('pointermove',move);
   hit.addEventListener('pointerdown',move);
