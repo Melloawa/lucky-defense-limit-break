@@ -123,6 +123,34 @@ tbody tr:last-child{border-bottom:none}
 tbody tr:hover{background:var(--surface-2)}
 tbody tr[aria-selected="true"]{background:var(--series-fill)}
 tbody td:first-child{font-family:var(--display); font-weight:600}
+.tablewrap th:first-child,.tablewrap td:first-child{position:sticky; left:0; z-index:1; background:var(--surface); box-shadow:1px 0 0 var(--grid)}
+.tablewrap tbody tr:hover td:first-child{background:var(--surface-2)}
+.tablewrap tbody tr[aria-selected="true"] td:first-child{background:linear-gradient(var(--series-fill),var(--series-fill)),var(--surface)}
+/* multi-level calculator */
+.range-pick{display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; margin-top:6px}
+.range-pick label{display:flex; gap:8px; align-items:center; font-weight:500}
+.range-pick select{font:inherit; font-family:var(--display); font-size:16px; padding:5px 8px; border:1px solid var(--line); border-radius:6px; background:var(--surface-2); color:var(--ink)}
+.range-pick .steps{color:var(--muted); font-size:13.5px}
+.rtable{min-width:0; width:100%; margin-top:12px; font-size:14px}
+.rtable th,.rtable td{padding:8px 10px}
+.rtable thead th{text-transform:none; letter-spacing:0; font-size:12.5px}
+.rtable thead th span{display:inline-flex; align-items:center; gap:5px}
+.rtable tbody tr{cursor:default}
+.rtable tbody tr:hover{background:none}
+.rtable td:first-child{font-family:var(--body); font-weight:500; color:var(--ink-2)}
+.rtable td{font-family:var(--display)}
+.rtable tr.mean td{color:var(--ink); font-weight:600; background:var(--series-fill)}
+.rtable tr.sd td{color:var(--ink-2)}
+.rtable tr.sd td, .rtable tr.sd + tr td{border-bottom:0}
+.rtable tr.sd{border-bottom:1px solid var(--line)}
+@media (max-width:520px){
+  .rtable{font-size:13px}
+  .rtable th,.rtable td{padding:8px 5px}
+  .rtable td:first-child{white-space:normal; line-height:1.25; padding-left:8px}
+  .rtable td:last-child,.rtable th:last-child{padding-right:8px}
+}
+.range-note{margin:10px 0 0; color:var(--ink-2); font-size:13.5px; max-width:72ch}
+.range-note b{color:var(--ink); font-weight:600}
 .foot{color:var(--muted); font-size:13px; margin:0}
 
 @media (max-width:760px){
@@ -190,11 +218,30 @@ tbody td:first-child{font-family:var(--display); font-weight:600}
     </div>
   </section>
 
+  <section class="panel" style="padding-bottom:16px">
+    <header>
+      <h2>Multi level cost calculator</h2>
+      <p>Total tries, gold and stones to upgrade through several levels.</p>
+      <p class="range-note" style="margin-top:4px"><b>Note that it depends on your luck.</b> The average is what you spend with average luck; the standard deviation (±) shows how far a typical result lands from it. Read the % as “this amount of players spend at most this much”: 1 in 10 players spend more than the 90% row.</p>
+    </header>
+    <div class="range-pick">
+      <label for="fromLv">Levels <select id="fromLv"></select></label>
+      <label for="toLv">to <select id="toLv"></select></label>
+      <span class="steps" id="rangeSteps"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="rtable" aria-live="polite">
+        <thead><tr><th></th><th>Tries</th><th><span><svg class="ico" aria-hidden="true"><use href="#i-gold"/></svg>Gold</span></th><th><span><svg class="ico" aria-hidden="true"><use href="#i-gem"/></svg>Stones</span></th></tr></thead>
+        <tbody id="rangeBody"></tbody>
+      </table>
+    </div>
+  </section>
+
   <div>
     <h2 style="margin-bottom:10px">All levels</h2>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Level</th><th>Base</th><th>Avg tries (mean)</th><th>50% by (median)</th><th>90% by</th><th>99% by</th><th>Guaranteed</th><th>Avg gold</th><th>Avg stones</th></tr></thead>
+        <thead><tr><th>Level</th><th>Avg gold</th><th>Avg stones</th><th>Mean tries</th><th>Std dev</th><th>50% by (median)</th><th>90% by</th><th>99% by</th><th>Guaranteed</th></tr></thead>
         <tbody id="tbody"></tbody>
       </table>
     </div>
@@ -204,14 +251,15 @@ tbody td:first-child{font-family:var(--display); font-weight:600}
 <script>
 const RAW=[[16,70,20000,30],[17,50,22000,32],[18,30,24000,34],[19,20,26000,36],[20,12,28000,38],[21,8,32000,40],[22,6,36000,42],[23,4,40000,44],[24,2,50000,47],[25,1,60000,50]];
 function build([lv,b,gold,gem]){
-  const pmf=[],rate=[],cdf=[]; let fail=1,c=0,E=0;
+  const pmf=[],rate=[],cdf=[]; let fail=1,c=0,E=0,E2=0;
   const guar=Math.ceil(1000/b)-9;               // first try where the rate reaches 100%
   for(let k=1;k<=guar;k++){
     const p=Math.min(1,b*(9+k)/1000);           // base*(1+0.1(k-1)), in integer math
-    const s=fail*p; pmf.push(s); rate.push(p); c+=s; cdf.push(c); E+=k*s; fail*=1-p;
+    const s=fail*p; pmf.push(s); rate.push(p); c+=s; cdf.push(c); E+=k*s; E2+=k*k*s; fail*=1-p;
   }
   const q=t=>cdf.findIndex(v=>v>=t-1e-12)+1;
-  return {lv,b,gold,gem,pmf,rate,cdf,E,guar,p50:q(.5),p90:q(.9),p99:q(.99),shown:Math.min(guar,Math.max(q(.999),3))};
+  let n=q(1-1e-10); const trunc=pmf.slice(0,n); trunc[n-1]+=1-cdf[n-1];   // tail mass folded into the last kept try
+  return {lv,b,gold,gem,pmf,rate,cdf,E,sd:Math.sqrt(Math.max(0,E2-E*E)),trunc,guar,p50:q(.5),p90:q(.9),p99:q(.99),shown:Math.min(guar,Math.max(q(.999),3))};
 }
 const LV=RAW.map(build);
 let cur=LV[0];
@@ -239,7 +287,7 @@ LV.forEach((d,i)=>{
 const tbody=$('#tbody');
 LV.forEach((d,i)=>{
   const tr=document.createElement('tr'); tr.tabIndex=0;
-  tr.innerHTML=`<td>Lv ${d.lv}</td><td>${d.b}%</td><td>${d.E.toFixed(2)}</td><td>${d.p50}</td><td>${d.p90}</td><td>${d.p99}</td><td>${d.guar}</td><td>${fmt(d.E*d.gold)}</td><td>${(d.E*d.gem).toFixed(1)}</td>`;
+  tr.innerHTML=`<td>Lv ${d.lv}</td><td>${fmt(d.E*d.gold)}</td><td>${(d.E*d.gem).toFixed(1)}</td><td>${d.E.toFixed(2)}</td><td>${d.sd.toFixed(2)}</td><td>${d.p50}</td><td>${d.p90}</td><td>${d.p99}</td><td>${d.guar}</td>`;
   tr.onclick=()=>select(i);
   tr.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(i);}};
   tbody.appendChild(tr);
@@ -254,7 +302,7 @@ function select(i,keepTries){
   $('#schedule').innerHTML=`<b>Lv ${d.lv} per-try chance:</b> ${first.join(' → ')}${d.guar>5?' → …':''} → <b>100% on try ${d.guar}</b>`;
   $('#pmfTitle').textContent=`PMF · P(X = k) at Lv ${d.lv}`; $('#cdfTitle').textContent=`CDF · P(X ≤ k) at Lv ${d.lv}`;
   $('#stats').innerHTML=`
-    <div class="stat"><span class="eyebrow">Avg (mean)</span><span class="v">${d.E.toFixed(2)}</span><span class="s">expected value</span></div>
+    <div class="stat"><span class="eyebrow">Avg (mean)</span><span class="v">${d.E.toFixed(2)}</span><span class="s">± ${d.sd.toFixed(2)} tries (std dev)</span></div>
     <div class="stat"><span class="eyebrow">50% by (median)</span><span class="v">try ${d.p50}</span><span class="s">${pct(d.cdf[d.p50-1])} succeed by then</span></div>
     <div class="stat"><span class="eyebrow">90% done by</span><span class="v">try ${d.p90}</span><span class="s">${pct(d.cdf[d.p90-1])} succeed by then</span></div>
     <div class="stat"><span class="eyebrow">99% done by</span><span class="v">try ${d.p99}</span><span class="s">${pct(d.cdf[d.p99-1])} succeed by then</span></div>
@@ -398,6 +446,38 @@ function drawCDF(){
   box._clear=()=>{hideTip(box);cross.setAttribute('opacity',0);dot.setAttribute('opacity',0);};
   hit.addEventListener('pointerleave',e=>{ if(e.pointerType!=='touch') box._clear(); });
 }
+
+/* ---------- multi-level calculator ---------- */
+const gcd=(a,b)=>{while(b){[a,b]=[b,a%b]}return a};
+const GU=LV.reduce((g,d)=>gcd(g,d.gold),0), SU=LV.reduce((g,d)=>gcd(g,d.gem),0);
+function convolve(acc,pmf,step){            // distribution of acc + X*step
+  const out=new Float64Array(acc.length+pmf.length*step);
+  for(let k=1;k<=pmf.length;k++){ const p=pmf[k-1]; if(p<1e-16) continue; const off=k*step;
+    for(let j=0;j<acc.length;j++){ const v=acc[j]; if(v) out[j+off]+=v*p; } }
+  return out;
+}
+function quant(arr,q,unit){ let c=0; for(let i=0;i<arr.length;i++){ c+=arr[i]; if(c>=q-1e-9) return i*unit; } return (arr.length-1)*unit; }
+const fromSel=$('#fromLv'), toSel=$('#toLv');
+LV.forEach(d=>{ fromSel.add(new Option(d.lv,d.lv)); toSel.add(new Option(d.lv,d.lv)); });
+fromSel.value=16; toSel.value=19;
+function renderRange(e){
+  let a=+fromSel.value, b=+toSel.value;
+  if(a>b){ if(e&&e.target===toSel){ fromSel.value=b; a=b; } else { toSel.value=a; b=a; } }
+  const sel=LV.filter(d=>d.lv>=a&&d.lv<=b), n=sel.length;
+  let Et=0,Vt=0,Eg=0,Vg=0,Es=0,Vs=0, T=new Float64Array([1]), G=T, S=T;
+  sel.forEach(d=>{ const v=d.sd*d.sd;
+    Et+=d.E; Vt+=v; Eg+=d.E*d.gold; Vg+=d.gold*d.gold*v; Es+=d.E*d.gem; Vs+=d.gem*d.gem*v;
+    T=convolve(T,d.trunc,1); G=convolve(G,d.trunc,d.gold/GU); S=convolve(S,d.trunc,d.gem/SU); });
+  $('#rangeSteps').textContent=`${n} upgrade${n>1?'s':''} (Lv ${a}${n>1?'–'+b:''} in the table)`;
+  const row=(cls,label,t,g,s)=>`<tr class="${cls}"><td>${label}</td><td>${t}</td><td>${g}</td><td>${s}</td></tr>`;
+  const qrow=(q,label)=>row('',label,fmt(quant(T,q,1)),fmt(quant(G,q,GU)),fmt(quant(S,q,SU)));
+  $('#rangeBody').innerHTML=
+    row('mean','Average (mean)',Et.toFixed(1),fmt(Eg),fmt(Es))+
+    row('sd','Standard deviation (±)','± '+Math.sqrt(Vt).toFixed(1),'± '+fmt(Math.sqrt(Vg)),'± '+fmt(Math.sqrt(Vs)))+
+    qrow(.10,'Lucky (10%)')+qrow(.50,'Median (50%)')+qrow(.90,'Unlucky (90%)')+qrow(.99,'Very unlucky (99%)');
+}
+fromSel.addEventListener('change',renderRange); toSel.addEventListener('change',renderRange);
+renderRange();
 
 function draw(){drawPMF();drawCDF();}
 let rz; window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(draw,120);});
