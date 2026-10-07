@@ -225,7 +225,7 @@ tbody td:first-child{font-family:var(--display); font-weight:600}
       <p class="range-note" style="margin-top:4px"><b>Note that it depends on your luck.</b> The average is what you spend with average luck; the standard deviation (±) shows how far a typical result lands from it. Read the % as “this amount of players spend at most this much”: 1 in 10 players spend more than the 90% row.</p>
     </header>
     <div class="range-pick">
-      <label for="fromLv">Levels <select id="fromLv"></select></label>
+      <label for="fromLv">Current immo level <select id="fromLv"></select></label>
       <label for="toLv">to <select id="toLv"></select></label>
       <span class="steps" id="rangeSteps"></span>
     </div>
@@ -458,17 +458,18 @@ function convolve(acc,pmf,step){            // distribution of acc + X*step
 }
 function quant(arr,q,unit){ let c=0; for(let i=0;i<arr.length;i++){ c+=arr[i]; if(c>=q-1e-9) return i*unit; } return (arr.length-1)*unit; }
 const fromSel=$('#fromLv'), toSel=$('#toLv');
-LV.forEach(d=>{ fromSel.add(new Option(d.lv,d.lv)); toSel.add(new Option(d.lv,d.lv)); });
-fromSel.value=16; toSel.value=19;
+// Immortal levels: upgrading a → a+1 uses the table row for level a+1 (15 → 16 is the Lv 16 row)
+LV.forEach(d=>{ fromSel.add(new Option(d.lv-1,d.lv-1)); toSel.add(new Option(d.lv,d.lv)); });
+fromSel.value=15; toSel.value=19;
 function renderRange(e){
   let a=+fromSel.value, b=+toSel.value;
-  if(a>b){ if(e&&e.target===toSel){ fromSel.value=b; a=b; } else { toSel.value=a; b=a; } }
-  const sel=LV.filter(d=>d.lv>=a&&d.lv<=b), n=sel.length;
+  if(a>=b){ if(e&&e.target===toSel){ a=b-1; fromSel.value=a; } else { b=a+1; toSel.value=b; } }
+  const sel=LV.filter(d=>d.lv>a&&d.lv<=b), n=sel.length;
   let Et=0,Vt=0,Eg=0,Vg=0,Es=0,Vs=0, T=new Float64Array([1]), G=T, S=T;
   sel.forEach(d=>{ const v=d.sd*d.sd;
     Et+=d.E; Vt+=v; Eg+=d.E*d.gold; Vg+=d.gold*d.gold*v; Es+=d.E*d.gem; Vs+=d.gem*d.gem*v;
     T=convolve(T,d.trunc,1); G=convolve(G,d.trunc,d.gold/GU); S=convolve(S,d.trunc,d.gem/SU); });
-  $('#rangeSteps').textContent=`${n} upgrade${n>1?'s':''} (Lv ${a}${n>1?'–'+b:''} in the table)`;
+  $('#rangeSteps').textContent=`${n} upgrade${n>1?'s':''}`;
   const row=(cls,label,t,g,s)=>`<tr class="${cls}"><td>${label}</td><td>${t}</td><td>${g}</td><td>${s}</td></tr>`;
   const qrow=(q,label)=>row('',label,fmt(quant(T,q,1)),fmt(quant(G,q,GU)),fmt(quant(S,q,SU)));
   $('#rangeBody').innerHTML=
